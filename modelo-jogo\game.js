@@ -1,217 +1,91 @@
-/*
- * MODELO DE JOGO — Jogos VR
- * -------------------------
- * Este arquivo é seu. Troque a lógica, o placar e as regras.
- * O que NÃO deve mudar é o contrato com o portal, explicado abaixo.
- */
-(function () {
-  "use strict";
+/* =========================================================
+   PÊNALTI RELÂMPAGO - Lógica do Jogo
+   Autora: Emanuelly Feriato (Turma 9C - Matemática)
+   ========================================================= */
 
-  // 1. Configuração: mude à vontade.
-  var CONFIG = {
-    rounds: 10,
-    title: "Clique no Alvo",
-  };
+// Opções de personalização dos jogadores e da bola
+const OPCOES_CABELO = [
+  { nome: "Curto Preto", cor: "#1e293b", estilo: "curto" },
+  { nome: "Moicano Azul", cor: "#3b82f6", estilo: "moicano" },
+  { nome: "Black Power", cor: "#451a03", estilo: "black" },
+  { nome: "Loiro Tigela", cor: "#facc15", estilo: "curto" },
+  { nome: "Coque Roxo", cor: "#a855f7", estilo: "coque" }
+];
 
-  var state = {
-    score: 0,
-    round: 0,
-    startedAt: null,
-    finished: false,
-    timerId: null,
-  };
+const OPCOES_UNIFORME = [
+  { nome: "Verde Brasil", camisa: "#16a34a", calcao: "#1d4ed8" },
+  { nome: "Vermelho Fogo", camisa: "#dc2626", calcao: "#0f172a" },
+  { nome: "Azul Celeste", camisa: "#0284c7", calcao: "#f8fafc" },
+  { nome: "Roxo Relâmpago", camisa: "#7e22ce", calcao: "#facc15" },
+  { nome: "Preto Noturno", camisa: "#1e293b", calcao: "#22c55e" }
+];
 
-  var els = {
-    board: document.getElementById("board"),
-    score: document.getElementById("score"),
-    total: document.getElementById("total"),
-    timer: document.getElementById("timer"),
-    hint: document.getElementById("start-hint"),
-    restart: document.getElementById("restart"),
-    result: document.getElementById("result"),
-    resultText: document.getElementById("result-text"),
-    playAgain: document.getElementById("play-again"),
-  };
+const OPCOES_CHUTEIRA = [
+  { nome: "Neon", cor: "#a3e635" },
+  { nome: "Dourada", cor: "#f59e0b" },
+  { nome: "Rosa Choque", cor: "#ec4899" },
+  { nome: "Branca Clássica", cor: "#f8fafc" }
+];
 
-  // 2. Avisa o portal que o jogo carregou.
-  window.parent.postMessage({ type: "vrgame:ready" }, "*");
+const OPCOES_LUVA = [
+  { nome: "Laranja Pro", cor: "#f97316" },
+  { nome: "Ciano Elétrico", cor: "#06b6d4" },
+  { nome: "Verde Limão", cor: "#84cc16" },
+  { nome: "Vermelha", cor: "#ef4444" }
+];
 
-  function formatTime(ms) {
-    return (ms / 1000).toFixed(1).replace(".", ",") + "s";
-  }
+const OPCOES_BOLA = [
+  { nome: "Clássica", fundo: "#ffffff", detalhe: "#0f172a" },
+  { nome: "Ouro", fundo: "#facc15", detalhe: "#854d0e" },
+  { nome: "Estelar", fundo: "#38bdf8", detalhe: "#1e3a8a" },
+  { nome: "Fogo", fundo: "#f97316", detalhe: "#7f1d1d" }
+];
 
-  function startTimer() {
-    if (state.startedAt) return;
-    state.startedAt = Date.now();
-    state.timerId = window.setInterval(function () {
-      els.timer.textContent = formatTime(Date.now() - state.startedAt);
-    }, 100);
-  }
+// Estado geral da partida
+const estado = {
+  modo: "robo", // "robo" ou "amigos"
+  somAtivo: true,
+  tempoInicio: 0,
+  visualJ1: { cabelo: 0, uniforme: 0, chuteira: 0, luva: 0 },
+  visualJ2: { cabelo: 1, uniforme: 1, chuteira: 1, luva: 1 },
+  bolaSelecionada: 0,
 
-  function stopTimer() {
-    if (state.timerId) {
-      window.clearInterval(state.timerId);
-      state.timerId = null;
+  // Controle das cobranças
+  cobrancaAtual: 1, // De 1 a 10 (5 para cada) e depois alternadas
+  emAlternadas: false,
+  golsJ1: 0,
+  golsJ2: 0,
+  historicoJ1: [],
+  historicoJ2: [],
+  acertosContaJ1: 0,
+  totalTentativasJ1: 0,
+
+  // Dados da rodada atual
+  quemChuta: 1, // 1 ou 2
+  contaAtual: null,
+  jogadaEncerrada: false,
+  timerRobo: null,
+  ultimoCliqueJ1: null,
+  ultimoCliqueJ2: null
+};
+
+// Contexto de áudio para efeitos sonoros simples sem precisar de arquivos externos
+let contextoAudio = null;
+
+function tocarSom(tipo) {
+  if (!estado.somAtivo) return;
+  try {
+    if (!contextoAudio) {
+      contextoAudio = new (window.AudioContext || window.webkitAudioContext)();
     }
-  }
+    const oscilador = contextoAudio.createOscillator();
+    const ganho = contextoAudio.createGain();
+    oscilador.connect(ganho);
+    ganho.connect(contextoAudio.destination);
 
-  function spawnTarget() {
-    var old = els.board.querySelector(".target");
-    if (old) old.remove();
-
-    var size = 64;
-    var maxX = Math.max(0, els.board.clientWidth - size - 8);
-    var maxY = Math.max(0, els.board.clientHeight - size - 8);
-
-    var button = document.createElement("button");
-    button.type = "button";
-    button.className = "target";
-    button.setAttribute("aria-label", "Alvo " + (state.round + 1));
-    button.style.left = 4 + Math.random() * maxX + "px";
-    button.style.top = 4 + Math.random() * maxY + "px";
-    button.addEventListener("click", hitTarget);
-    els.board.appendChild(button);
-    button.focus();
-  }
-
-  function hitTarget() {
-    if (state.finished) return;
-    startTimer();
-
-    state.score += 1;
-    state.round += 1;
-    els.score.textContent = String(state.score);
-
-    if (state.round >= CONFIG.rounds) {
-      finish();
-      return;
-    }
-
-    spawnTarget();
-  }
-
-  function finish() {
-    state.finished = true;
-    stopTimer();
-    var timeMs = state.startedAt ? Date.now() - state.startedAt : 0;
-
-    els.result.hidden = false;
-    els.resultText.textContent =
-      "Você acertou " +
-      state.score +
-      " de " +
-      CONFIG.rounds +
-      " alvos em " +
-      formatTime(timeMs) +
-      ".";
-
-    // 3. Avisa o portal que a partida terminou e envia o resultado.
-    window.parent.postMessage(
-      {
-        type: "vrgame:finish",
-        score: state.score,
-        maxScore: CONFIG.rounds,
-        timeMs: timeMs,
-        detail: { mode: "template" },
-      },
-      "*"
-    );
-  }
-
-  function reset() {
-    stopTimer();
-    state.score = 0;
-    state.round = 0;
-    state.startedAt = null;
-    state.finished = false;
-    els.score.textContent = "0";
-    els.timer.textContent = "0,0s";
-    els.result.hidden = true;
-    els.hint.hidden = false;
-    els.total.textContent = String(CONFIG.rounds);
-
-    var old = els.board.querySelector(".target");
-    if (old) old.remove();
-  }
-
-  // 4. O portal avisa se o tema é claro ou escuro.
-  function applyTheme(theme) {
-    if (theme === "dark" || theme === "light") {
-      document.documentElement.dataset.theme = theme;
-    }
-  }
-
-  // Na nova aba não existe portal: ?theme= > localStorage > preferência do sistema.
-  function preferredTheme() {
-    try {
-      var fromQuery = new URLSearchParams(window.location.search).get("theme");
-      if (fromQuery === "dark" || fromQuery === "light") return fromQuery;
-    } catch (error) {
-      // URLSearchParams indisponível: segue para a próxima opção
-    }
-
-    try {
-      var saved = window.localStorage.getItem("theme");
-      if (saved === "dark" || saved === "light") return saved;
-    } catch (error) {
-      // armazenamento bloqueado: usa a preferência do sistema
-    }
-
-    return window.matchMedia("(prefers-color-scheme: dark)").matches
-      ? "dark"
-      : "light";
-  }
-
-  var lastHeight = 0;
-
-  function reportHeight() {
-    var height = Math.ceil(document.body.getBoundingClientRect().height);
-    if (Math.abs(height - lastHeight) < 4) return;
-    lastHeight = height;
-    window.parent.postMessage({ type: "vrgame:resize", height: height }, "*");
-  }
-
-  window.addEventListener("message", function (event) {
-    if (!event.data) return;
-
-    if (event.data.type === "vrgame:theme") {
-      applyTheme(event.data.theme);
-    }
-
-    if (event.data.type === "vrgame:fullscreen") {
-      document.documentElement.classList.toggle(
-        "is-fullscreen",
-        Boolean(event.data.fullscreen)
-      );
-    }
-  });
-
-  els.board.addEventListener("pointerdown", function () {
-    if (state.round === 0 && !state.finished) {
-      els.hint.hidden = true;
-      spawnTarget();
-    }
-  });
-
-  els.restart.addEventListener("click", reset);
-  els.playAgain.addEventListener("click", reset);
-
-  applyTheme(preferredTheme());
-
-  if (window.self === window.top) {
-    document.documentElement.classList.add("is-standalone");
-  }
-
-  window.addEventListener("storage", function (event) {
-    if (event.key === "theme") applyTheme(event.newValue);
-  });
-
-  window.addEventListener("resize", reportHeight);
-  if ("ResizeObserver" in window) {
-    new ResizeObserver(reportHeight).observe(document.body);
-  }
-  window.requestAnimationFrame(reportHeight);
-
-  els.total.textContent = String(CONFIG.rounds);
-  document.getElementById("title").textContent = CONFIG.title;
-})();
+    const agora = contextoAudio.currentTime;
+    if (tipo === "gol") {
+      oscilador.type = "triangle";
+      oscilador.frequency.setValueAtTime(440, agora);
+      oscilador.frequency.exponentialRampToValueAtTime(880, agora + 0.35);
+      ganho.gain.setValueAtTime(0.2,

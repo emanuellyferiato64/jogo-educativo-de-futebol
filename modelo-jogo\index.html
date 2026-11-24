@@ -1,48 +1,158 @@
-<!doctype html>
-<html lang="pt-BR" data-theme="light">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="color-scheme" content="light dark" />
-    <title>Modelo de Jogo — Jogos VR</title>
-    <link rel="stylesheet" href="style.css" />
-  </head>
-  <body>
-    <div class="app">
-      <header class="top">
-        <div>
-          <span class="kicker">Modelo</span>
-          <h1 id="title">Clique no Alvo</h1>
-          <p class="subtitle">Troque este jogo pelo seu. O contrato já está pronto.</p>
-        </div>
-        <button id="restart" class="btn" type="button">Reiniciar</button>
-      </header>
-
-      <main>
-        <div class="hud">
-          <span class="pill">Alvos: <strong id="score">0</strong>/<span id="total">10</span></span>
-          <span class="pill">Tempo: <strong id="timer">0,0s</strong></span>
-        </div>
-
-        <div id="board" class="board" aria-label="Área do jogo">
-          <p id="start-hint" class="start-hint">Clique no alvo para começar</p>
-        </div>
-      </main>
-
-      <footer class="bottom">
-        <p>Este é o arquivo <code>game.js</code>. Leia os comentários e adapte.</p>
-      </footer>
-    </div>
-
-    <div id="result" class="overlay" hidden>
-      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="result-title">
-        <div class="modal-icon" aria-hidden="true">🎯</div>
-        <h2 id="result-title">Muito bem!</h2>
-        <p id="result-text">Você concluiu o jogo.</p>
-        <button id="play-again" class="btn btn-primary full" type="button">Jogar de novo</button>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pênalti Relâmpago</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="tema-escuro">
+  <div id="aplicativo" class="conteiner-principal">
+    <!-- Cabeçalho com placar e botões de controle -->
+    <header class="cabecalho">
+      <div class="titulo-area">
+        <h1>⚡ Pênalti Relâmpago</h1>
+        <span id="etiqueta-fase" class="etiqueta">Estádio Lotado • Noite</span>
       </div>
-    </div>
+      <div class="controles-topo">
+        <button id="botao-som" class="botao-icone" type="button" aria-label="Alternar som" title="Som ligado ou desligado">🔊</button>
+        <button id="botao-tema" class="botao-icone" type="button" aria-label="Alternar tema claro ou escuro" title="Trocar tema">☀️</button>
+      </div>
+    </header>
 
-    <script src="game.js"></script>
-  </body>
+    <!-- TELA 1: INÍCIO E PERSONALIZAÇÃO -->
+    <main id="tela-inicio" class="tela ativa">
+      <section class="painel-modo">
+        <h2>1. Escolha como quer jogar</h2>
+        <div class="botoes-modo">
+          <button id="modo-robo" class="botao-modo selecionado" type="button">
+            🤖 Contra o Robô (1 Jogador)
+          </button>
+          <button id="modo-amigos" class="botao-modo" type="button">
+            👥 2 Jogadores (Mesma Tela)
+          </button>
+        </div>
+      </section>
+
+      <section class="painel-personalizacao">
+        <h2>2. Personalize os jogadores e a bola</h2>
+        <div class="grade-personalizacao">
+          <!-- Jogador 1 -->
+          <div class="cartao-personagem">
+            <h3>Jogador 1 (Você)</h3>
+            <div class="visual-previa" id="previa-j1" aria-hidden="true"></div>
+            <div class="opcoes-visual">
+              <button type="button" class="botao-opcao" data-jogador="1" data-item="cabelo">💇 Cabelo</button>
+              <button type="button" class="botao-opcao" data-jogador="1" data-item="uniforme">👕 Uniforme</button>
+              <button type="button" class="botao-opcao" data-jogador="1" data-item="chuteira">👟 Chuteira</button>
+              <button type="button" class="botao-opcao" data-jogador="1" data-item="luva">🧤 Luva</button>
+            </div>
+          </div>
+
+          <!-- Bola -->
+          <div class="cartao-bola">
+            <h3>Bola da Partida</h3>
+            <div class="visual-previa-bola" id="previa-bola" aria-hidden="true"></div>
+            <button type="button" id="botao-trocar-bola" class="botao-opcao destaque-bola">⚽ Trocar Bola</button>
+          </div>
+
+          <!-- Jogador 2 ou Robô -->
+          <div class="cartao-personagem">
+            <h3 id="titulo-j2">Robô Rival</h3>
+            <div class="visual-previa" id="previa-j2" aria-hidden="true"></div>
+            <div class="opcoes-visual">
+              <button type="button" class="botao-opcao" data-jogador="2" data-item="cabelo">💇 Cabelo</button>
+              <button type="button" class="botao-opcao" data-jogador="2" data-item="uniforme">👕 Uniforme</button>
+              <button type="button" class="botao-opcao" data-jogador="2" data-item="chuteira">👟 Chuteira</button>
+              <button type="button" class="botao-opcao" data-jogador="2" data-item="luva">🧤 Luva</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="acao-comecar">
+        <button id="botao-iniciar" class="botao-principal" type="button">Apitar Início da Disputa! ⚽</button>
+      </div>
+    </main>
+
+    <!-- TELA 2: PARTIDA DE PÊNALTIS -->
+    <section id="tela-jogo" class="tela" aria-live="polite">
+      <!-- Placar e Bolinhas das Cobranças -->
+      <div class="placar-geral">
+        <div class="lado-placar">
+          <strong id="nome-placar-j1">Jogador 1</strong>
+          <span id="gols-j1" class="numero-gols">0</span>
+          <div id="bolinhas-j1" class="bolinhas-cobranca"></div>
+        </div>
+        <div class="centro-placar">
+          <span id="indicador-rodada" class="rodada-texto">Cobrança 1 de 5</span>
+          <span id="papel-turno" class="turno-texto">Jogador 1 Chuta • Jogador 2 Defende</span>
+        </div>
+        <div class="lado-placar">
+          <strong id="nome-placar-j2">Robô</strong>
+          <span id="gols-j2" class="numero-gols">0</span>
+          <div id="bolinhas-j2" class="bolinhas-cobranca"></div>
+        </div>
+      </div>
+
+      <!-- Cenário do Estádio Noturno -->
+      <div class="estadio">
+        <div class="holofote esquerdo"></div>
+        <div class="holofote direito"></div>
+        <div class="arquibancada">
+          <div id="torcida-faixa" class="torcida-pessoas"></div>
+          <div id="balao-torcida" class="balao-torcida">📣 A torcida está agitada!</div>
+        </div>
+        <div class="gramado">
+          <div class="trave">
+            <div class="rede"></div>
+            <div id="boneco-goleiro" class="boneco-campo goleiro"></div>
+          </div>
+          <div class="marca-cal"></div>
+          <div id="bola-campo" class="bola-campo"></div>
+          <div id="boneco-batedor" class="boneco-campo batedor"></div>
+        </div>
+      </div>
+
+      <!-- Painel da Conta Matemática -->
+      <div class="painel-conta">
+        <p class="instrucao-rapida" id="instrucao-jogada">Quem acertar primeiro vence a jogada!</p>
+        <div id="expressao-matematica" class="expressao">12 + 8 = ?</div>
+      </div>
+
+      <!-- Área de Respostas (Dividida para 2 jogadores ou 1 jogador) -->
+      <div id="area-respostas" class="area-respostas">
+        <div class="coluna-jogador" id="painel-botoes-j1">
+          <h4 id="rotulo-botoes-j1">Respostas - Jogador 1 (Chutando)</h4>
+          <div id="botoes-j1" class="grade-botoes-resposta"></div>
+        </div>
+
+        <div class="coluna-jogador" id="painel-botoes-j2">
+          <h4 id="rotulo-botoes-j2">Respostas - Robô (No Gol)</h4>
+          <div id="botoes-j2" class="grade-botoes-resposta"></div>
+        </div>
+      </div>
+
+      <!-- Caixa de Feedback após o chute -->
+      <div id="caixa-feedback" class="caixa-feedback escondido">
+        <h3 id="titulo-feedback">GOOOOOL!</h3>
+        <p id="explicacao-feedback">Explicação da conta aqui.</p>
+        <button id="botao-proxima" class="botao-principal" type="button">Próxima Cobrança ➡️</button>
+      </div>
+    </section>
+
+    <!-- TELA 3: RESULTADO FINAL -->
+    <section id="tela-fim" class="tela">
+      <div class="cartao-final">
+        <div class="trofeu">🏆</div>
+        <h2 id="titulo-vencedor">Fim de Jogo!</h2>
+        <p id="resumo-placar-final" class="placar-final-texto">Placar: 4 x 3</p>
+        <p id="estatisticas-finais" class="estatisticas-texto">Você acertou 4 de 5 contas!</p>
+        <button id="botao-jogar-novamente" class="botao-principal" type="button">Jogar Novamente 🔄</button>
+      </div>
+    </section>
+  </div>
+
+  <script src="game.js"></script>
+</body>
 </html>
